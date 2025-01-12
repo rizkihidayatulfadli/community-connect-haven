@@ -1,33 +1,27 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
-import { createPayment } from "@/services/midtrans";
-import { supabase } from "@/integrations/supabase/client";
-import { AuthError } from "@supabase/supabase-js";
+import { PaymentHandler } from "@/services/PaymentHandler";
+import { UserRegistration } from "@/services/UserRegistration";
+import { useSignUpForm } from "@/hooks/useSignUpForm";
 
 export function SignUpForm() {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [rateLimitError, setRateLimitError] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
-
-  const getErrorMessage = (error: AuthError | Error) => {
-    if ('error_type' in error) {
-      if (error.message.includes('over_email_send_rate_limit')) {
-        setRateLimitError(true);
-        setTimeout(() => setRateLimitError(false), 60000);
-        return 'Please wait a moment before trying to sign up again.';
-      }
-    }
-    return error.message;
-  };
+  const {
+    name,
+    setName,
+    email,
+    setEmail,
+    password,
+    setPassword,
+    isLoading,
+    setIsLoading,
+    rateLimitError,
+    getErrorMessage,
+    toast
+  } = useSignUpForm();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +30,7 @@ export function SignUpForm() {
     setIsLoading(true);
     
     try {
-      // First initialize payment
+      // Initialize payment
       const paymentDetails = {
         orderId: `ORDER-${Date.now()}`,
         amount: 25000,
@@ -44,98 +38,26 @@ export function SignUpForm() {
         customerEmail: email
       };
 
-      // Create Midtrans payment and get the snap token
-      const response = await createPayment(paymentDetails);
+      // Get payment token
+      const token = await PaymentHandler.initializePayment(paymentDetails);
       
-      if (!response.token) {
-        throw new Error('Failed to get payment token');
-      }
+      // Process payment
+      const paymentResult = await PaymentHandler.handlePayment(token);
 
-      // Open Midtrans Snap popup and wait for payment completion
-      return new Promise((resolve, reject) => {
-        // @ts-ignore - Midtrans types are not available
-        window.snap.pay(response.token, {
-          onSuccess: async function(result: any) {
-            try {
-              // Create user account after successful payment
-              const { data: authData, error: authError } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                  data: {
-                    full_name: name
-                  }
-                }
-              });
-
-              if (authError) throw authError;
-
-              if (!authData.user?.id) {
-                throw new Error('User creation failed');
-              }
-
-              // Create membership record
-              const { data: membershipData, error: membershipError } = await supabase
-                .from('memberships')
-                .insert([
-                  { 
-                    user_id: authData.user.id,
-                    status: 'pending'
-                  }
-                ])
-                .select()
-                .single();
-
-              if (membershipError) throw membershipError;
-
-              // Create payment record
-              const { error: paymentError } = await supabase
-                .from('payments')
-                .insert([
-                  {
-                    membership_id: membershipData.id,
-                    order_id: paymentDetails.orderId,
-                    amount: paymentDetails.amount,
-                    status: 'settlement',
-                    payment_type: result.payment_type,
-                    transaction_time: new Date().toISOString()
-                  }
-                ]);
-
-              if (paymentError) throw paymentError;
-
-              toast({
-                title: "Registration successful",
-                description: "Your account has been created and payment processed successfully.",
-              });
-              
-              navigate("/member-dashboard");
-              resolve(result);
-            } catch (error) {
-              reject(error);
-            }
-          },
-          onPending: function(result: any) {
-            toast({
-              title: "Payment pending",
-              description: "Please complete your payment to finish registration.",
-            });
-            reject(new Error('Payment pending'));
-          },
-          onError: function(result: any) {
-            toast({
-              title: "Payment failed",
-              description: "There was an error processing your payment. Please try again.",
-              variant: "destructive"
-            });
-            reject(new Error('Payment failed'));
-          },
-          onClose: function() {
-            setIsLoading(false);
-            reject(new Error('Payment window closed'));
-          }
-        });
+      // Create user account and related records
+      const user = await UserRegistration.registerUser({ name, email, password });
+      const membership = await UserRegistration.createMembership(user.id);
+      await UserRegistration.recordPayment(membership.id, {
+        ...paymentDetails,
+        payment_type: paymentResult.payment_type
       });
+
+      toast({
+        title: "Registration successful",
+        description: "Your account has been created and payment processed successfully.",
+      });
+      
+      navigate("/member-dashboard");
     } catch (error) {
       const message = getErrorMessage(error as AuthError | Error);
       toast({
