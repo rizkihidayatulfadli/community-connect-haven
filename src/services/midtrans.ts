@@ -25,7 +25,9 @@ export const createPayment = async (details: PaymentDetails) => {
         enabled_payments: ["credit_card", "gopay", "bank_transfer"],
         credit_card: {
           secure: true
-        }
+        },
+        merchant_id: import.meta.env.VITE_MIDTRANS_MERCHANT_ID,
+        client_key: import.meta.env.VITE_MIDTRANS_CLIENT_KEY
       })
     });
 
@@ -39,4 +41,16 @@ export const createPayment = async (details: PaymentDetails) => {
     console.error('Payment error:', error);
     throw error;
   }
+}
+
+// Helper function to check if we're in sandbox mode
+export const isSandboxMode = () => {
+  return import.meta.env.MODE === 'development';
+}
+
+// Get the appropriate API URL based on mode
+export const getMidtransApiUrl = () => {
+  return isSandboxMode() 
+    ? 'https://api.sandbox.midtrans.com/v2'
+    : 'https://api.midtrans.com/v2';
 }
