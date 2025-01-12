@@ -11,7 +11,7 @@ export const createPayment = async (details: PaymentDetails) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Basic ' + btoa('YOUR-SERVER-KEY:'),
+        'Authorization': 'Basic ' + btoa(import.meta.env.VITE_MIDTRANS_SERVER_KEY + ':'),
       },
       body: JSON.stringify({
         transaction_details: {
