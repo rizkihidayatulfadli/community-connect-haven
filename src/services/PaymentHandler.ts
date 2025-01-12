@@ -24,28 +24,39 @@ export class PaymentHandler {
 
   static handlePayment(token: string): Promise<any> {
     return new Promise((resolve, reject) => {
-      if (!window.snap) {
-        reject(new Error('Midtrans Snap is not initialized'));
+      if (typeof window.snap === 'undefined') {
+        console.error('Midtrans Snap is not initialized');
+        reject(new Error('Payment system is not ready. Please try again.'));
         return;
       }
 
       window.snap.pay(token, {
         onSuccess: (result: any) => {
           console.log('Payment success:', result);
-          resolve(result);
+          resolve({
+            ...result,
+            payment_type: result.payment_type,
+            status: 'settlement'
+          });
         },
         onPending: (result: any) => {
           console.log('Payment pending:', result);
-          resolve(result); // We resolve here too since we want to create the user account
+          resolve({
+            ...result,
+            payment_type: result.payment_type,
+            status: 'pending'
+          });
         },
         onError: (result: any) => {
           console.error('Payment error:', result);
-          reject(new Error('Payment failed'));
+          reject(new Error(result.message || 'Payment failed'));
         },
         onClose: () => {
-          console.log('Payment dialog closed');
-          reject(new Error('Payment window closed'));
-        }
+          console.log('Customer closed the popup without finishing the payment');
+          reject(new Error('Payment cancelled'));
+        },
+        language: "en",
+        hideCloseButton: true
       });
     });
   }

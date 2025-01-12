@@ -13,35 +13,41 @@ const SignUp = () => {
   const location = useLocation();
 
   useEffect(() => {
-    // Remove any existing Midtrans script to prevent duplicates
-    const existingScript = document.getElementById('midtrans-script');
-    if (existingScript) {
-      existingScript.remove();
-    }
+    const loadMidtransScript = () => {
+      return new Promise<void>((resolve, reject) => {
+        // Remove any existing Midtrans script
+        const existingScript = document.getElementById('midtrans-script');
+        if (existingScript) {
+          existingScript.remove();
+        }
 
-    // Load Midtrans script
-    const script = document.createElement('script');
-    script.id = 'midtrans-script';
-    script.src = isSandboxMode()
-      ? 'https://app.sandbox.midtrans.com/snap/snap.js'
-      : 'https://app.midtrans.com/snap/snap.js';
-    script.setAttribute('data-client-key', isSandboxMode()
-      ? import.meta.env.VITE_MIDTRANS_SANDBOX_CLIENT_KEY
-      : import.meta.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY);
-    
-    // Wait for script to load before allowing form submission
-    script.onload = () => {
-      console.log('Midtrans Snap script loaded successfully');
+        // Create new script element
+        const script = document.createElement('script');
+        script.id = 'midtrans-script';
+        script.src = isSandboxMode()
+          ? 'https://app.sandbox.midtrans.com/snap/snap.js'
+          : 'https://app.midtrans.com/snap/snap.js';
+        script.setAttribute('data-client-key', isSandboxMode()
+          ? import.meta.env.VITE_MIDTRANS_SANDBOX_CLIENT_KEY
+          : import.meta.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY);
+        
+        script.onload = () => {
+          console.log('Midtrans Snap script loaded successfully');
+          resolve();
+        };
+        
+        script.onerror = () => {
+          console.error('Failed to load Midtrans Snap script');
+          reject(new Error('Failed to load payment system'));
+        };
+        
+        document.body.appendChild(script);
+      });
     };
-    
-    script.onerror = () => {
-      console.error('Failed to load Midtrans Snap script');
-    };
-    
-    document.body.appendChild(script);
+
+    loadMidtransScript().catch(console.error);
 
     return () => {
-      // Cleanup script on component unmount
       const script = document.getElementById('midtrans-script');
       if (script) {
         script.remove();
@@ -50,11 +56,10 @@ const SignUp = () => {
   }, []);
 
   useEffect(() => {
-    // Handle Midtrans payment callback
     const params = new URLSearchParams(location.search);
     const transactionStatus = params.get("transaction_status");
     if (transactionStatus) {
-      console.log("Payment status:", transactionStatus);
+      console.log("Payment status from URL:", transactionStatus);
     }
   }, [location]);
 

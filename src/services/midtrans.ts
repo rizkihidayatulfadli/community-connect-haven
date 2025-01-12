@@ -38,11 +38,7 @@ export const createPayment = async (details: PaymentDetails, customCallbacks?: {
         credit_card: {
           secure: true
         },
-        callbacks: {
-          finish: customCallbacks?.finish || window.location.origin + '/member-dashboard',
-          error: customCallbacks?.error || window.location.origin + '/signup?error=true',
-          pending: customCallbacks?.pending || window.location.origin + '/signup?pending=true'
-        }
+        callbacks: customCallbacks
       }
     });
 
