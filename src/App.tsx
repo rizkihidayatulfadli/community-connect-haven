@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import SignIn from "./pages/SignIn";
+import { SignInForm } from "@/components/auth/SignInForm";
 import SignUp from "./pages/SignUp";
 import MemberDashboard from "./pages/MemberDashboard";
 import OwnerDashboard from "./pages/OwnerDashboard";
@@ -9,7 +9,7 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<SignIn />} />
+        <Route path="/" element={<SignInForm />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/member-dashboard" element={<MemberDashboard />} />
         <Route path="/owner-dashboard" element={<OwnerDashboard />} />
