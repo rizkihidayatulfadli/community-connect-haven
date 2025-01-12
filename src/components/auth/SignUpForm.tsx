@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import { createPayment } from "@/services/midtrans";
 import { supabase } from "@/integrations/supabase/client";
+import { AuthError } from "@supabase/supabase-js";
 
 export function SignUpForm() {
   const [name, setName] = useState("");
@@ -15,6 +16,16 @@ export function SignUpForm() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const getErrorMessage = (error: AuthError | Error) => {
+    // Check if it's a Supabase AuthError
+    if ('error_type' in error) {
+      if (error.message.includes('over_email_send_rate_limit')) {
+        return 'Please wait a moment before trying to sign up again.';
+      }
+    }
+    return error.message;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,11 +45,15 @@ export function SignUpForm() {
 
       if (authError) throw authError;
 
+      if (!authData.user?.id) {
+        throw new Error('User creation failed');
+      }
+
       // Create a membership record
       const { data: membershipData, error: membershipError } = await supabase
         .from('memberships')
         .insert([
-          { user_id: authData.user?.id }
+          { user_id: authData.user.id }
         ])
         .select()
         .single();
@@ -73,12 +88,12 @@ export function SignUpForm() {
       // Redirect to Midtrans payment page
       window.location.href = response.redirect_url;
     } catch (error) {
+      const message = getErrorMessage(error as AuthError | Error);
       toast({
         title: "Error",
-        description: "Failed to process signup. Please try again.",
+        description: message,
         variant: "destructive"
       });
-    } finally {
       setIsLoading(false);
     }
   };
