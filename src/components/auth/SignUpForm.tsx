@@ -5,56 +5,45 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
+import { createPayment } from "@/services/midtrans";
 
 export function SignUpForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     
     try {
-      // TODO: Implement actual signup logic
-      
-      // Initialize Midtrans payment
-      const paymentData = {
-        transaction_details: {
-          order_id: `ORDER-${Date.now()}`,
-          gross_amount: 25000
-        },
-        customer_details: {
-          first_name: name,
-          email: email
-        }
+      const paymentDetails = {
+        orderId: `ORDER-${Date.now()}`,
+        amount: 25000, // Rp 25.000
+        customerName: name,
+        customerEmail: email
       };
 
-      // TODO: Replace with your actual Midtrans server endpoint
-      const response = await fetch('/api/create-payment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(paymentData),
-      });
-
-      const { redirect_url } = await response.json();
+      const response = await createPayment(paymentDetails);
       
       // Redirect to Midtrans payment page
-      window.location.href = redirect_url;
+      window.location.href = response.redirect_url;
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to process signup. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <Card className="w-[350px]">
+    <Card className="w-[350px] mx-auto">
       <CardHeader>
         <CardTitle>Create Account</CardTitle>
         <CardDescription>Join Boosthenics community</CardDescription>
@@ -97,12 +86,15 @@ export function SignUpForm() {
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-2">
-          <Button type="submit" className="w-full">Sign Up (Rp 25.000/month)</Button>
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? "Processing..." : "Sign Up (Rp 25.000/month)"}
+          </Button>
           <Button 
             variant="outline" 
             className="w-full"
             onClick={() => navigate("/signin")}
             type="button"
+            disabled={isLoading}
           >
             Already have an account?
           </Button>

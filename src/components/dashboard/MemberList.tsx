@@ -35,7 +35,7 @@ export function MemberList() {
       <CardContent>
         <div className="space-y-4">
           {members.map((member) => (
-            <div key={member.id} className="flex items-center justify-between p-4 border rounded-lg">
+            <div key={member.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg gap-4">
               <div className="flex items-center gap-4">
                 <Avatar>
                   <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.name}`} />
