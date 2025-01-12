@@ -14,12 +14,15 @@ export function SignUpForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [rateLimitError, setRateLimitError] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const getErrorMessage = (error: AuthError | Error) => {
     if ('error_type' in error) {
       if (error.message.includes('over_email_send_rate_limit')) {
+        setRateLimitError(true);
+        setTimeout(() => setRateLimitError(false), 60000); // Reset after 60 seconds
         return 'Please wait a moment before trying to sign up again.';
       }
     }
@@ -28,6 +31,8 @@ export function SignUpForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (rateLimitError) return;
+    
     setIsLoading(true);
     
     try {
@@ -48,11 +53,14 @@ export function SignUpForm() {
         throw new Error('User creation failed');
       }
 
-      // Create a membership record
+      // Create a membership record with explicit user_id
       const { data: membershipData, error: membershipError } = await supabase
         .from('memberships')
         .insert([
-          { user_id: authData.user.id }
+          { 
+            user_id: authData.user.id,
+            status: 'pending'
+          }
         ])
         .select()
         .single();
@@ -67,7 +75,7 @@ export function SignUpForm() {
         customerEmail: email
       };
 
-      // Create payment record
+      // Create payment record with explicit membership_id
       const { error: paymentError } = await supabase
         .from('payments')
         .insert([
@@ -170,7 +178,11 @@ export function SignUpForm() {
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-2">
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button 
+            type="submit" 
+            className="w-full" 
+            disabled={isLoading || rateLimitError}
+          >
             {isLoading ? "Processing..." : "Sign Up (Rp 25.000/month)"}
           </Button>
           <Button 
