@@ -6,6 +6,7 @@ import OwnerDashboard from "./pages/OwnerDashboard";
 import ProfileSettings from "./pages/ProfileSettings";
 import LandingPage from "./pages/LandingPage";
 import ResetPassword from "./pages/ResetPassword";
+import OwnerSignIn from "./pages/OwnerSignIn";
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/signin" element={<SignInForm />} />
+        <Route path="/owner-signin" element={<OwnerSignIn />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/member-dashboard" element={<MemberDashboard />} />
