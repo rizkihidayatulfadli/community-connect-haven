@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { PaymentHandler } from "@/services/PaymentHandler";
 import { UserRegistration } from "@/services/UserRegistration";
 import { useSignUpForm } from "@/hooks/useSignUpForm";
+import { AuthError } from "@supabase/supabase-js";
 
 export function SignUpForm() {
   const navigate = useNavigate();
