@@ -1,1 +1,10 @@
 project_id = "iinurlfknakhhgrjxbvz"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+
+[[functions]]
+name = "midtrans-notification"
+verify_jwt = false

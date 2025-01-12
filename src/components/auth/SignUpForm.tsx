@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import { createPayment } from "@/services/midtrans";
+import { supabase } from "@/integrations/supabase/client";
 
 export function SignUpForm() {
   const [name, setName] = useState("");
@@ -20,6 +21,31 @@ export function SignUpForm() {
     setIsLoading(true);
     
     try {
+      // First create the user account
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: name
+          }
+        }
+      });
+
+      if (authError) throw authError;
+
+      // Create a membership record
+      const { data: membershipData, error: membershipError } = await supabase
+        .from('memberships')
+        .insert([
+          { user_id: authData.user?.id }
+        ])
+        .select()
+        .single();
+
+      if (membershipError) throw membershipError;
+
+      // Initialize payment
       const paymentDetails = {
         orderId: `ORDER-${Date.now()}`,
         amount: 25000, // Rp 25.000
@@ -27,6 +53,21 @@ export function SignUpForm() {
         customerEmail: email
       };
 
+      // Create payment record
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .insert([
+          {
+            membership_id: membershipData.id,
+            order_id: paymentDetails.orderId,
+            amount: paymentDetails.amount,
+            status: 'pending'
+          }
+        ]);
+
+      if (paymentError) throw paymentError;
+
+      // Create Midtrans payment
       const response = await createPayment(paymentDetails);
       
       // Redirect to Midtrans payment page

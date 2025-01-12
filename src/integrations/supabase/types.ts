@@ -9,7 +9,77 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      memberships: {
+        Row: {
+          created_at: string | null
+          end_date: string | null
+          id: string
+          start_date: string | null
+          status: Database["public"]["Enums"]["membership_status"] | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["membership_status"] | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["membership_status"] | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          membership_id: string | null
+          order_id: string
+          payment_type: string | null
+          status: string
+          transaction_time: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          membership_id?: string | null
+          order_id: string
+          payment_type?: string | null
+          status: string
+          transaction_time?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          membership_id?: string | null
+          order_id?: string
+          payment_type?: string | null
+          status?: string
+          transaction_time?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +88,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      membership_status: "pending" | "active" | "expired"
     }
     CompositeTypes: {
       [_ in never]: never
