@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState } from "react";
+import { Instagram } from "lucide-react";
 
 const members = [
   { 
@@ -10,21 +11,27 @@ const members = [
     name: "John Doe", 
     email: "john@example.com", 
     status: "active",
-    activeUntil: "2024-05-01" 
+    activeUntil: "2024-05-01",
+    birthday: "1990-05-15",
+    instagram: "johndoe"
   },
   { 
     id: 2, 
     name: "Jane Smith", 
     email: "jane@example.com", 
     status: "pending",
-    activeUntil: null 
+    activeUntil: null,
+    birthday: "1992-08-22",
+    instagram: "janesmith"
   },
   { 
     id: 3, 
     name: "Mike Johnson", 
     email: "mike@example.com", 
     status: "active",
-    activeUntil: "2024-04-15" 
+    activeUntil: "2024-04-15",
+    birthday: "1988-12-03",
+    instagram: "mikej"
   },
 ];
 
@@ -99,6 +106,26 @@ export function MemberList() {
                     <p className="text-sm text-muted-foreground">
                       {new Date(selectedMember.activeUntil).toLocaleDateString()}
                     </p>
+                  </div>
+                )}
+                <div>
+                  <p className="font-medium">Birthday</p>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(selectedMember.birthday).toLocaleDateString()}
+                  </p>
+                </div>
+                {selectedMember.instagram && (
+                  <div>
+                    <p className="font-medium">Instagram</p>
+                    <a 
+                      href={`https://instagram.com/${selectedMember.instagram}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      <Instagram className="h-4 w-4" />
+                      @{selectedMember.instagram}
+                    </a>
                   </div>
                 )}
               </div>

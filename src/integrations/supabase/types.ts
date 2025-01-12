@@ -11,27 +11,33 @@ export type Database = {
     Tables: {
       memberships: {
         Row: {
+          birthday: string | null
           created_at: string | null
           end_date: string | null
           id: string
+          instagram: string | null
           start_date: string | null
           status: Database["public"]["Enums"]["membership_status"] | null
           updated_at: string | null
           user_id: string | null
         }
         Insert: {
+          birthday?: string | null
           created_at?: string | null
           end_date?: string | null
           id?: string
+          instagram?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["membership_status"] | null
           updated_at?: string | null
           user_id?: string | null
         }
         Update: {
+          birthday?: string | null
           created_at?: string | null
           end_date?: string | null
           id?: string
+          instagram?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["membership_status"] | null
           updated_at?: string | null
