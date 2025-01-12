@@ -29,12 +29,8 @@ const getServerKey = () => {
 
 export const createPayment = async (details: PaymentDetails) => {
   try {
-    const response = await fetch('/api/create-payment', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    const { data, error } = await supabase.functions.invoke('create-payment', {
+      body: {
         transaction_details: {
           order_id: details.orderId,
           gross_amount: details.amount
@@ -47,18 +43,11 @@ export const createPayment = async (details: PaymentDetails) => {
         credit_card: {
           secure: true
         }
-      })
+      }
     });
 
-    if (!response.ok) {
-      throw new Error('Payment initialization failed');
-    }
-
-    const data = await response.json();
-    return {
-      token: data.token,
-      redirect_url: data.redirect_url
-    };
+    if (error) throw error;
+    return data;
   } catch (error) {
     console.error('Payment error:', error);
     throw error;

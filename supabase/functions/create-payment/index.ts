@@ -8,16 +8,27 @@ const API_URL = SANDBOX_MODE
   ? 'https://app.sandbox.midtrans.com/snap/v1/transactions'
   : 'https://app.midtrans.com/snap/v1/transactions';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   try {
     if (req.method !== 'POST') {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {
         status: 405,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
     const requestData = await req.json();
+    console.log('Payment request data:', requestData);
     
     const response = await fetch(API_URL, {
       method: 'POST',
@@ -29,18 +40,20 @@ serve(async (req) => {
     });
 
     const data = await response.json();
+    console.log('Midtrans response:', data);
 
     if (!response.ok) {
       throw new Error(data.message || 'Payment initialization failed');
     }
 
     return new Response(JSON.stringify(data), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
   } catch (error) {
+    console.error('Edge function error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     });
   }
