@@ -23,14 +23,10 @@ const getClientKey = () => {
     : import.meta.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY;
 }
 
-const getServerKey = () => {
-  return isSandboxMode()
-    ? import.meta.env.VITE_MIDTRANS_SANDBOX_SERVER_KEY
-    : import.meta.env.VITE_MIDTRANS_PRODUCTION_SERVER_KEY;
-}
-
 export const createPayment = async (details: PaymentDetails) => {
   try {
+    console.log('Creating payment with details:', details);
+    
     const { data, error } = await supabase.functions.invoke('create-payment', {
       body: {
         transaction_details: {
@@ -41,14 +37,23 @@ export const createPayment = async (details: PaymentDetails) => {
           first_name: details.customerName,
           email: details.customerEmail
         },
-        enabled_payments: ["credit_card", "gopay", "bank_transfer"],
         credit_card: {
           secure: true
+        },
+        callbacks: {
+          finish: window.location.origin + '/member-dashboard',
+          error: window.location.origin + '/signup?error=true',
+          pending: window.location.origin + '/signup?pending=true'
         }
       }
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Payment creation error:', error);
+      throw error;
+    }
+
+    console.log('Payment creation response:', data);
     return data;
   } catch (error) {
     console.error('Payment error:', error);

@@ -34,9 +34,13 @@ serve(async (req) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Authorization': 'Basic ' + btoa(SERVER_KEY + ':')
       },
-      body: JSON.stringify(requestData)
+      body: JSON.stringify({
+        ...requestData,
+        enabled_payments: ["credit_card", "gopay", "bank_transfer"]
+      })
     });
 
     const data = await response.json();
