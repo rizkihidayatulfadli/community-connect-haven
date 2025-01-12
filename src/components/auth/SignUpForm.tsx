@@ -18,7 +18,6 @@ export function SignUpForm() {
   const { toast } = useToast();
 
   const getErrorMessage = (error: AuthError | Error) => {
-    // Check if it's a Supabase AuthError
     if ('error_type' in error) {
       if (error.message.includes('over_email_send_rate_limit')) {
         return 'Please wait a moment before trying to sign up again.';
@@ -63,7 +62,7 @@ export function SignUpForm() {
       // Initialize payment
       const paymentDetails = {
         orderId: `ORDER-${Date.now()}`,
-        amount: 25000, // Rp 25.000
+        amount: 25000,
         customerName: name,
         customerEmail: email
       };
@@ -82,11 +81,40 @@ export function SignUpForm() {
 
       if (paymentError) throw paymentError;
 
-      // Create Midtrans payment
+      // Create Midtrans payment and get the snap token
       const response = await createPayment(paymentDetails);
       
-      // Redirect to Midtrans payment page
-      window.location.href = response.redirect_url;
+      // Open Midtrans Snap popup
+      if (response.token) {
+        // @ts-ignore - Midtrans types are not available
+        window.snap.pay(response.token, {
+          onSuccess: function(result: any) {
+            toast({
+              title: "Payment successful",
+              description: "Your payment has been processed successfully.",
+            });
+            navigate("/");
+          },
+          onPending: function(result: any) {
+            toast({
+              title: "Payment pending",
+              description: "Please complete your payment.",
+            });
+          },
+          onError: function(result: any) {
+            toast({
+              title: "Payment failed",
+              description: "There was an error processing your payment.",
+              variant: "destructive"
+            });
+          },
+          onClose: function() {
+            setIsLoading(false);
+          }
+        });
+      } else {
+        throw new Error('Failed to get payment token');
+      }
     } catch (error) {
       const message = getErrorMessage(error as AuthError | Error);
       toast({
