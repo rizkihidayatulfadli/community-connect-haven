@@ -31,25 +31,28 @@ export function SignUpForm() {
     setIsLoading(true);
     
     try {
-      // Initialize payment
+      // Initialize payment with proper details
       const paymentDetails = {
         orderId: `ORDER-${Date.now()}`,
-        amount: 25000,
+        amount: 25000, // Amount in IDR (Rp 25.000)
         customerName: name,
         customerEmail: email
       };
 
-      // Get payment token with custom callbacks if needed
+      // Set up callback URLs using the current domain
       const customCallbacks = {
         finish: `${window.location.origin}/member-dashboard`,
         error: `${window.location.origin}/signup?error=true`,
         pending: `${window.location.origin}/signup?pending=true`
       };
       
+      console.log('Initializing payment with details:', paymentDetails);
       const token = await PaymentHandler.initializePayment(paymentDetails, customCallbacks);
+      console.log('Payment token received:', token);
       
-      // Process payment
+      // Process payment with the token
       const paymentResult = await PaymentHandler.handlePayment(token);
+      console.log('Payment result:', paymentResult);
 
       // Create user account and related records
       const user = await UserRegistration.registerUser({ name, email, password });
@@ -66,6 +69,7 @@ export function SignUpForm() {
       
       navigate("/member-dashboard");
     } catch (error) {
+      console.error('Payment or registration error:', error);
       const message = getErrorMessage(error as AuthError | Error);
       toast({
         title: "Error",
