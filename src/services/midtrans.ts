@@ -1,11 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-
-interface PaymentDetails {
-  orderId: string;
-  amount: number;
-  customerName: string;
-  customerEmail: string;
-}
+import { PaymentDetails } from "@/types/payment";
 
 export const isSandboxMode = () => {
   return import.meta.env.MODE === 'development';
@@ -23,7 +17,11 @@ const getClientKey = () => {
     : import.meta.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY;
 }
 
-export const createPayment = async (details: PaymentDetails) => {
+export const createPayment = async (details: PaymentDetails, customCallbacks?: {
+  finish?: string;
+  error?: string;
+  pending?: string;
+}) => {
   try {
     console.log('Creating payment with details:', details);
     
@@ -41,9 +39,9 @@ export const createPayment = async (details: PaymentDetails) => {
           secure: true
         },
         callbacks: {
-          finish: window.location.origin + '/member-dashboard',
-          error: window.location.origin + '/signup?error=true',
-          pending: window.location.origin + '/signup?pending=true'
+          finish: customCallbacks?.finish || window.location.origin + '/member-dashboard',
+          error: customCallbacks?.error || window.location.origin + '/signup?error=true',
+          pending: customCallbacks?.pending || window.location.origin + '/signup?pending=true'
         }
       }
     });

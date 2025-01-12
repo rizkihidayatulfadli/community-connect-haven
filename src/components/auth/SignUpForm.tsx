@@ -39,8 +39,14 @@ export function SignUpForm() {
         customerEmail: email
       };
 
-      // Get payment token
-      const token = await PaymentHandler.initializePayment(paymentDetails);
+      // Get payment token with custom callbacks if needed
+      const customCallbacks = {
+        finish: `${window.location.origin}/member-dashboard`,
+        error: `${window.location.origin}/signup?error=true`,
+        pending: `${window.location.origin}/signup?pending=true`
+      };
+      
+      const token = await PaymentHandler.initializePayment(paymentDetails, customCallbacks);
       
       // Process payment
       const paymentResult = await PaymentHandler.handlePayment(token);

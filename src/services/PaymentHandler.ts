@@ -2,8 +2,12 @@ import { createPayment } from "@/services/midtrans";
 import { PaymentDetails } from "@/types/payment";
 
 export class PaymentHandler {
-  static async initializePayment(details: PaymentDetails) {
-    const response = await createPayment(details);
+  static async initializePayment(details: PaymentDetails, customCallbacks?: {
+    finish?: string;
+    error?: string;
+    pending?: string;
+  }) {
+    const response = await createPayment(details, customCallbacks);
     if (!response.token) {
       throw new Error('Failed to get payment token');
     }
