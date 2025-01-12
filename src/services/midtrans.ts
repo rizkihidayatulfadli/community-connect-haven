@@ -29,11 +29,10 @@ const getServerKey = () => {
 
 export const createPayment = async (details: PaymentDetails) => {
   try {
-    const response = await fetch(getMidtransApiUrl() + '/transactions', {
+    const response = await fetch('/api/create-payment', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Basic ' + btoa(getServerKey() + ':'),
       },
       body: JSON.stringify({
         transaction_details: {
