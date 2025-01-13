@@ -55,8 +55,7 @@ export class PaymentHandler {
           console.log('Customer closed the popup without finishing the payment');
           reject(new Error('Payment cancelled'));
         },
-        language: "en",
-        hideCloseButton: true
+        language: "en"
       });
     });
   }
