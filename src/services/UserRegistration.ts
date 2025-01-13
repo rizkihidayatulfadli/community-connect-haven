@@ -20,13 +20,25 @@ export class UserRegistration {
   }
 
   static async createMembership(userId: string) {
+    // Explicitly set the user_id in the insert
     const { data: membershipData, error: membershipError } = await supabase
       .from('memberships')
-      .insert([{ user_id: userId, status: 'pending' }])
+      .insert([{ 
+        user_id: userId,
+        status: 'pending'
+      }])
       .select()
       .single();
 
-    if (membershipError) throw membershipError;
+    if (membershipError) {
+      console.error('Membership creation error:', membershipError);
+      throw membershipError;
+    }
+    
+    if (!membershipData) {
+      throw new Error('Failed to create membership record');
+    }
+
     return membershipData;
   }
 
@@ -42,6 +54,9 @@ export class UserRegistration {
         transaction_time: new Date().toISOString()
       }]);
 
-    if (paymentError) throw paymentError;
+    if (paymentError) {
+      console.error('Payment recording error:', paymentError);
+      throw paymentError;
+    }
   }
 }
