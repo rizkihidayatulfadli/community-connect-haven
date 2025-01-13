@@ -7,6 +7,8 @@ import { PaymentHandler } from "@/services/PaymentHandler";
 import { UserRegistration } from "@/services/UserRegistration";
 import { useSignUpForm } from "@/hooks/useSignUpForm";
 import { AuthError } from "@supabase/supabase-js";
+import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export function SignUpForm() {
   const navigate = useNavigate();
@@ -24,6 +26,18 @@ export function SignUpForm() {
     toast
   } = useSignUpForm();
 
+  // Check authentication state on mount and changes
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        console.log('User signed in:', session.user);
+        navigate('/member-dashboard');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (rateLimitError) return;
@@ -31,6 +45,16 @@ export function SignUpForm() {
     setIsLoading(true);
     
     try {
+      console.log('Starting user registration process...');
+      
+      // Create user account first
+      const user = await UserRegistration.registerUser({ name, email, password });
+      console.log('User registered successfully:', user);
+
+      // Create membership record
+      const membership = await UserRegistration.createMembership(user.id);
+      console.log('Membership created:', membership);
+
       // Initialize payment with proper details
       const paymentDetails = {
         orderId: `ORDER-${Date.now()}`,
@@ -54,9 +78,7 @@ export function SignUpForm() {
       const paymentResult = await PaymentHandler.handlePayment(token);
       console.log('Payment result:', paymentResult);
 
-      // Create user account and related records
-      const user = await UserRegistration.registerUser({ name, email, password });
-      const membership = await UserRegistration.createMembership(user.id);
+      // Record payment
       await UserRegistration.recordPayment(membership.id, {
         ...paymentDetails,
         payment_type: paymentResult.payment_type
@@ -67,6 +89,7 @@ export function SignUpForm() {
         description: "Your account has been created and payment processed successfully.",
       });
       
+      // Redirect to dashboard
       navigate("/member-dashboard");
     } catch (error) {
       console.error('Payment or registration error:', error);
