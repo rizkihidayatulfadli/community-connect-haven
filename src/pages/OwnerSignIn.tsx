@@ -4,20 +4,66 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
+import { AuthError } from "@supabase/supabase-js";
 
 const OwnerSignIn = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const getErrorMessage = (error: AuthError) => {
+    if (error.message.includes('Invalid login credentials')) {
+      return "Invalid email or password. Please check your credentials and try again.";
+    }
+    if (error.message.includes('Email not confirmed')) {
+      return "Please check your email and confirm your account before signing in.";
+    }
+    return error.message;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement actual authentication
-    if (email === "owner@example.com") {
+    setIsLoading(true);
+
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (authError) {
+        throw authError;
+      }
+
+      // Check if user has owner role
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user?.user_metadata?.role || user.user_metadata.role !== 'owner') {
+        // Sign out if not an owner
+        await supabase.auth.signOut();
+        throw new Error('Access denied. This portal is for owners only.');
+      }
+
+      toast({
+        title: "Welcome back!",
+        description: "You have successfully signed in.",
+      });
+
       navigate("/owner-dashboard");
-    } else {
-      // Show error message
-      alert("Invalid credentials");
+    } catch (error) {
+      console.error('Sign in error:', error);
+      const message = error instanceof AuthError ? getErrorMessage(error) : 'An error occurred during sign in';
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -55,12 +101,19 @@ const OwnerSignIn = () => {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
-            <Button type="submit" className="w-full">Sign In</Button>
+            <Button 
+              type="submit" 
+              className="w-full bg-orange-500 hover:bg-orange-600"
+              disabled={isLoading}
+            >
+              {isLoading ? "Signing in..." : "Sign In"}
+            </Button>
             <Button 
               variant="outline" 
               className="w-full"
               onClick={() => navigate("/")}
               type="button"
+              disabled={isLoading}
             >
               Back to Home
             </Button>
