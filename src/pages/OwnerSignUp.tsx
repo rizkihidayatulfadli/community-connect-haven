@@ -4,18 +4,53 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const OwnerSignUp = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [communityName, setCommunityName] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement actual owner registration
-    console.log("Owner signup:", { email, password, communityName });
-    navigate("/owner-dashboard");
+    setIsLoading(true);
+
+    try {
+      // Sign up the user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            community_name: communityName,
+            role: 'owner'
+          }
+        }
+      });
+
+      if (authError) throw authError;
+
+      toast({
+        title: "Success!",
+        description: "Please check your email to verify your account.",
+      });
+
+      // Redirect to owner dashboard
+      navigate("/owner-dashboard");
+    } catch (error) {
+      console.error("Signup error:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create account",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -63,12 +98,19 @@ const OwnerSignUp = () => {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
-            <Button type="submit" className="w-full">Create Account</Button>
+            <Button 
+              type="submit" 
+              className="w-full"
+              disabled={isLoading}
+            >
+              {isLoading ? "Creating Account..." : "Create Account"}
+            </Button>
             <Button 
               variant="outline" 
               className="w-full"
               onClick={() => navigate("/")}
               type="button"
+              disabled={isLoading}
             >
               Back to Home
             </Button>
