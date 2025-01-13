@@ -38,6 +38,10 @@ export function SignUpForm() {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
+  const isAdminEmail = (email: string) => {
+    return email.endsWith('@boosthenics.com');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (rateLimitError) return;
@@ -45,60 +49,83 @@ export function SignUpForm() {
     setIsLoading(true);
     
     try {
-      console.log('Starting user registration process...');
+      console.log('Starting registration process...');
       
-      // Create user account first
-      const user = await UserRegistration.registerUser({ name, email, password });
-      console.log('User registered successfully:', user);
+      if (isAdminEmail(email)) {
+        // Admin registration flow
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          options: {
+            data: {
+              full_name: name,
+              role: 'admin'
+            }
+          }
+        });
 
-      // Create membership record
-      const membership = await UserRegistration.createMembership(user.id);
-      console.log('Membership created:', membership);
+        if (error) throw error;
 
-      // Initialize payment with proper details
-      const paymentDetails = {
-        orderId: `ORDER-${Date.now()}`,
-        amount: 25000, // Amount in IDR (Rp 25.000)
-        customerName: name,
-        customerEmail: email
-      };
+        toast({
+          title: "Admin Registration Successful",
+          description: "Please check your email to verify your account and set your password.",
+        });
 
-      // Set up callback URLs using the current domain
-      const customCallbacks = {
-        finish: `${window.location.origin}/member-dashboard`,
-        error: `${window.location.origin}/signup?error=true`,
-        pending: `${window.location.origin}/signup?pending=true`
-      };
-      
-      console.log('Initializing payment with details:', paymentDetails);
-      const token = await PaymentHandler.initializePayment(paymentDetails, customCallbacks);
-      console.log('Payment token received:', token);
-      
-      // Process payment with the token
-      const paymentResult = await PaymentHandler.handlePayment(token);
-      console.log('Payment result:', paymentResult);
+        navigate("/signin");
+      } else {
+        // Regular user registration flow
+        console.log('Starting user registration process...');
+        
+        // Create user account first
+        const user = await UserRegistration.registerUser({ name, email, password });
+        console.log('User registered successfully:', user);
 
-      // Record payment
-      await UserRegistration.recordPayment(membership.id, {
-        ...paymentDetails,
-        payment_type: paymentResult.payment_type
-      });
+        // Create membership record
+        const membership = await UserRegistration.createMembership(user.id);
+        console.log('Membership created:', membership);
 
-      toast({
-        title: "Registration successful",
-        description: "Your account has been created and payment processed successfully.",
-      });
-      
-      // Redirect to dashboard
-      navigate("/member-dashboard");
+        // Initialize payment with proper details
+        const paymentDetails = {
+          orderId: `ORDER-${Date.now()}`,
+          amount: 25000, // Amount in IDR (Rp 25.000)
+          customerName: name,
+          customerEmail: email
+        };
+
+        // Set up callback URLs using the current domain
+        const customCallbacks = {
+          finish: `${window.location.origin}/member-dashboard`,
+          error: `${window.location.origin}/signup?error=true`,
+          pending: `${window.location.origin}/signup?pending=true`
+        };
+        
+        console.log('Initializing payment with details:', paymentDetails);
+        const token = await PaymentHandler.initializePayment(paymentDetails, customCallbacks);
+        console.log('Payment token received:', token);
+        
+        // Process payment with the token
+        const paymentResult = await PaymentHandler.handlePayment(token);
+        console.log('Payment result:', paymentResult);
+
+        // Record payment
+        await UserRegistration.recordPayment(membership.id, {
+          ...paymentDetails,
+          payment_type: paymentResult.payment_type
+        });
+
+        toast({
+          title: "Registration successful",
+          description: "Please check your email to verify your account.",
+        });
+      }
     } catch (error) {
-      console.error('Payment or registration error:', error);
+      console.error('Registration error:', error);
       const message = getErrorMessage(error as AuthError | Error);
       toast({
         title: "Error",
         description: message,
         variant: "destructive"
       });
+    } finally {
       setIsLoading(false);
     }
   };
@@ -133,17 +160,19 @@ export function SignUpForm() {
                 required
               />
             </div>
-            <div className="flex flex-col space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input 
-                id="password" 
-                type="password"
-                placeholder="Create a password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
+            {!isAdminEmail(email) && (
+              <div className="flex flex-col space-y-1.5">
+                <Label htmlFor="password">Password</Label>
+                <Input 
+                  id="password" 
+                  type="password"
+                  placeholder="Create a password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+            )}
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-2">
@@ -152,7 +181,7 @@ export function SignUpForm() {
             className="w-full" 
             disabled={isLoading || rateLimitError}
           >
-            {isLoading ? "Processing..." : "Sign Up (Rp 25.000/month)"}
+            {isLoading ? "Processing..." : isAdminEmail(email) ? "Sign Up as Admin" : "Sign Up (Rp 25.000/month)"}
           </Button>
           <Button 
             variant="outline" 

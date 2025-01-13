@@ -8,8 +8,10 @@ export class UserRegistration {
       password: data.password,
       options: {
         data: {
-          full_name: data.name
-        }
+          full_name: data.name,
+          role: 'member'
+        },
+        emailRedirectTo: `${window.location.origin}/member-dashboard`
       }
     });
 
@@ -20,7 +22,7 @@ export class UserRegistration {
   }
 
   static async createMembership(userId: string) {
-    // Explicitly set the user_id in the insert
+    console.log('Creating membership for user:', userId);
     const { data: membershipData, error: membershipError } = await supabase
       .from('memberships')
       .insert([{ 
