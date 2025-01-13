@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { AuthError } from "@supabase/supabase-js";
 
 export function SignInForm() {
   const [email, setEmail] = useState("");
@@ -13,6 +14,13 @@ export function SignInForm() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const getErrorMessage = (error: AuthError) => {
+    if (error.message.includes('Email not confirmed')) {
+      return "Please check your email and confirm your account before signing in.";
+    }
+    return error.message;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +33,9 @@ export function SignInForm() {
         password
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        throw authError;
+      }
 
       // Check if user has an active membership
       const { data: membershipData, error: membershipError } = await supabase
@@ -58,11 +68,13 @@ export function SignInForm() {
 
     } catch (error) {
       console.error('Sign in error:', error);
+      const message = error instanceof AuthError ? getErrorMessage(error) : 'An error occurred during sign in';
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "An error occurred during sign in",
+        description: message,
         variant: "destructive"
       });
+    } finally {
       setIsLoading(false);
     }
   };

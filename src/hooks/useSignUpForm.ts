@@ -11,13 +11,19 @@ export const useSignUpForm = () => {
   const { toast } = useToast();
 
   const getErrorMessage = (error: AuthError | Error) => {
-    if ('error_type' in error) {
-      if (error.message.includes('over_email_send_rate_limit')) {
-        setRateLimitError(true);
-        setTimeout(() => setRateLimitError(false), 60000);
-        return 'Please wait a moment before trying to sign up again.';
-      }
+    const errorMessage = error.message.toLowerCase();
+    
+    if (errorMessage.includes('over_email_send_rate_limit')) {
+      setRateLimitError(true);
+      // Reset rate limit error after 10 seconds (as per error message)
+      setTimeout(() => setRateLimitError(false), 10000);
+      return 'Please wait 10 seconds before trying to sign up again.';
     }
+    
+    if (errorMessage.includes('email not confirmed')) {
+      return 'Please check your email and confirm your account before signing in.';
+    }
+    
     return error.message;
   };
 
