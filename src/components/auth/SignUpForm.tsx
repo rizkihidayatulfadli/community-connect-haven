@@ -3,10 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { PaymentHandler } from "@/services/PaymentHandler";
-import { UserRegistration } from "@/services/UserRegistration";
 import { useSignUpForm } from "@/hooks/useSignUpForm";
-import { AuthError } from "@supabase/supabase-js";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -31,7 +28,8 @@ export function SignUpForm() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
         console.log('User signed in:', session.user);
-        navigate('/member-dashboard');
+        const isAdmin = session.user.email?.endsWith('@boosthenics.com');
+        navigate(isAdmin ? '/admin-dashboard' : '/member-dashboard');
       }
     });
 
@@ -55,6 +53,7 @@ export function SignUpForm() {
         // Admin registration flow
         const { data, error } = await supabase.auth.signUp({
           email,
+          password: 'temporary-password', // Temporary password that will be changed after email verification
           options: {
             data: {
               full_name: name,
@@ -73,15 +72,20 @@ export function SignUpForm() {
         navigate("/signin");
       } else {
         // Regular user registration flow
-        console.log('Starting user registration process...');
+        console.log('Starting user registration flow...');
         
-        // Create user account first
-        const user = await UserRegistration.registerUser({ name, email, password });
-        console.log('User registered successfully:', user);
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: name,
+              role: 'member'
+            }
+          }
+        });
 
-        // Create membership record
-        const membership = await UserRegistration.createMembership(user.id);
-        console.log('Membership created:', membership);
+        if (error) throw error;
 
         // Initialize payment with proper details
         const paymentDetails = {
@@ -99,27 +103,58 @@ export function SignUpForm() {
         };
         
         console.log('Initializing payment with details:', paymentDetails);
-        const token = await PaymentHandler.initializePayment(paymentDetails, customCallbacks);
-        console.log('Payment token received:', token);
         
-        // Process payment with the token
-        const paymentResult = await PaymentHandler.handlePayment(token);
-        console.log('Payment result:', paymentResult);
+        // Create membership record
+        const { data: membershipData, error: membershipError } = await supabase
+          .from('memberships')
+          .insert([{ 
+            user_id: data.user?.id,
+            status: 'pending'
+          }])
+          .select()
+          .single();
 
-        // Record payment
-        await UserRegistration.recordPayment(membership.id, {
-          ...paymentDetails,
-          payment_type: paymentResult.payment_type
+        if (membershipError) throw membershipError;
+
+        // Record initial payment attempt
+        const { error: paymentError } = await supabase
+          .from('payments')
+          .insert([{
+            membership_id: membershipData.id,
+            order_id: paymentDetails.orderId,
+            amount: paymentDetails.amount,
+            status: 'pending'
+          }]);
+
+        if (paymentError) throw paymentError;
+
+        // Open Midtrans popup
+        window.snap.pay(paymentDetails.orderId, {
+          onSuccess: async (result: any) => {
+            console.log('Payment success:', result);
+            navigate('/member-dashboard');
+          },
+          onPending: (result: any) => {
+            console.log('Payment pending:', result);
+            navigate('/signup?pending=true');
+          },
+          onError: (result: any) => {
+            console.error('Payment error:', result);
+            navigate('/signup?error=true');
+          },
+          onClose: () => {
+            console.log('Customer closed the popup without finishing the payment');
+          }
         });
 
         toast({
           title: "Registration successful",
-          description: "Please check your email to verify your account.",
+          description: "Please complete the payment process.",
         });
       }
     } catch (error) {
       console.error('Registration error:', error);
-      const message = getErrorMessage(error as AuthError | Error);
+      const message = getErrorMessage(error);
       toast({
         title: "Error",
         description: message,
