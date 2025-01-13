@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,39 +15,36 @@ const OwnerSignIn = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const getErrorMessage = (error: AuthError) => {
-    if (error.message.includes('Invalid login credentials')) {
-      return "Invalid email or password. Please check your credentials and try again.";
-    }
-    if (error.message.includes('Email not confirmed')) {
-      return "Please check your email and confirm your account before signing in.";
-    }
-    return error.message;
-  };
+  // Check if user is already signed in
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        navigate("/owner-dashboard");
+      }
+    };
+    checkUser();
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password
+        password,
       });
 
-      if (authError) {
-        throw authError;
+      if (error) {
+        throw error;
       }
 
-      // Check if user has owner role
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user?.user_metadata?.role || user.user_metadata.role !== 'owner') {
-        // Sign out if not an owner
-        await supabase.auth.signOut();
-        throw new Error('Access denied. This portal is for owners only.');
+      if (!data.user) {
+        throw new Error("No user data returned");
       }
 
+      // Successfully signed in
       toast({
         title: "Welcome back!",
         description: "You have successfully signed in.",
@@ -56,10 +53,21 @@ const OwnerSignIn = () => {
       navigate("/owner-dashboard");
     } catch (error) {
       console.error('Sign in error:', error);
-      const message = error instanceof AuthError ? getErrorMessage(error) : 'An error occurred during sign in';
+      let errorMessage = 'An error occurred during sign in';
+      
+      if (error instanceof AuthError) {
+        if (error.message.includes('Invalid login credentials')) {
+          errorMessage = "Invalid email or password. Please check your credentials and try again.";
+        } else if (error.message.includes('Email not confirmed')) {
+          errorMessage = "Please check your email and confirm your account before signing in.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: "Error",
-        description: message,
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
