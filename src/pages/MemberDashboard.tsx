@@ -1,10 +1,12 @@
 import { MemberList } from "@/components/dashboard/MemberList";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { UserCircle } from "lucide-react";
+import { UserCircle, LogOut, Menu } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const MemberDashboard = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   return (
     <div className="min-h-screen bg-background p-8">
@@ -18,9 +20,16 @@ const MemberDashboard = () => {
               className="flex items-center gap-2"
             >
               <UserCircle className="h-4 w-4" />
-              Profile Settings
+              {!isMobile && "Profile Settings"}
             </Button>
-            <Button variant="outline" onClick={() => navigate("/")}>Sign Out</Button>
+            <Button 
+              variant="outline" 
+              onClick={() => navigate("/")}
+              className="flex items-center gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              {!isMobile && "Sign Out"}
+            </Button>
           </div>
         </div>
         <MemberList />
