@@ -1,59 +1,32 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { useSignUpForm } from "@/hooks/useSignUpForm";
-import { useEffect } from "react";
+import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 export function SignUpForm() {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const {
-    name,
-    setName,
-    email,
-    setEmail,
-    password,
-    setPassword,
-    isLoading,
-    setIsLoading,
-    rateLimitError,
-    getErrorMessage,
-    toast
-  } = useSignUpForm();
-
-  // Check authentication state on mount and changes
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        console.log('User signed in:', session.user);
-        const isAdmin = session.user.email?.endsWith('@boosthenics.com');
-        navigate(isAdmin ? '/admin-dashboard' : '/member-dashboard');
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  const isAdminEmail = (email: string) => {
-    return email.endsWith('@boosthenics.com');
-  };
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (rateLimitError) return;
-    
     setIsLoading(true);
-    
+
     try {
-      console.log('Starting registration process...');
-      
-      if (isAdminEmail(email)) {
+      const isAdmin = email.endsWith('@boosthenics.com');
+
+      if (isAdmin) {
         // Admin registration flow
         const { data, error } = await supabase.auth.signUp({
           email,
-          password: 'temporary-password', // Temporary password that will be changed after email verification
+          password,
           options: {
             data: {
               full_name: name,
@@ -65,16 +38,14 @@ export function SignUpForm() {
         if (error) throw error;
 
         toast({
-          title: "Admin Registration Successful",
-          description: "Please check your email to verify your account and set your password.",
+          title: "Registration successful",
+          description: "Please check your email to verify your account.",
         });
 
-        navigate("/signin");
+        navigate("/owner-signin");
       } else {
         // Regular user registration flow
-        console.log('Starting user registration flow...');
-        
-        const { data, error } = await supabase.auth.signUp({
+        const { data: userData, error: userError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -85,30 +56,13 @@ export function SignUpForm() {
           }
         });
 
-        if (error) throw error;
+        if (userError) throw userError;
 
-        // Initialize payment with proper details
-        const paymentDetails = {
-          orderId: `ORDER-${Date.now()}`,
-          amount: 25000, // Amount in IDR (Rp 25.000)
-          customerName: name,
-          customerEmail: email
-        };
-
-        // Set up callback URLs using the current domain
-        const customCallbacks = {
-          finish: `${window.location.origin}/member-dashboard`,
-          error: `${window.location.origin}/signup?error=true`,
-          pending: `${window.location.origin}/signup?pending=true`
-        };
-        
-        console.log('Initializing payment with details:', paymentDetails);
-        
         // Create membership record
         const { data: membershipData, error: membershipError } = await supabase
           .from('memberships')
           .insert([{ 
-            user_id: data.user?.id,
+            user_id: userData.user?.id,
             status: 'pending'
           }])
           .select()
@@ -116,49 +70,82 @@ export function SignUpForm() {
 
         if (membershipError) throw membershipError;
 
+        // Generate order ID
+        const orderId = `ORDER-${Date.now()}`;
+
         // Record initial payment attempt
         const { error: paymentError } = await supabase
           .from('payments')
           .insert([{
             membership_id: membershipData.id,
-            order_id: paymentDetails.orderId,
-            amount: paymentDetails.amount,
+            order_id: orderId,
+            amount: 100000, // Amount in smallest currency unit (e.g., cents)
             status: 'pending'
           }]);
 
         if (paymentError) throw paymentError;
 
-        // Open Midtrans popup
-        window.snap.pay(paymentDetails.orderId, {
-          onSuccess: async (result: any) => {
-            console.log('Payment success:', result);
-            navigate('/member-dashboard');
-          },
-          onPending: (result: any) => {
-            console.log('Payment pending:', result);
-            navigate('/signup?pending=true');
-          },
-          onError: (result: any) => {
-            console.error('Payment error:', result);
-            navigate('/signup?error=true');
-          },
-          onClose: () => {
-            console.log('Customer closed the popup without finishing the payment');
+        // Call create-payment edge function to get Midtrans token
+        const { data: paymentData, error: tokenError } = await supabase.functions.invoke('create-payment', {
+          body: {
+            transaction_details: {
+              order_id: orderId,
+              gross_amount: 100000
+            },
+            customer_details: {
+              first_name: name,
+              email: email
+            }
           }
         });
 
+        if (tokenError) throw tokenError;
+
+        // Open Midtrans popup with the token
+        if (window.snap && paymentData.token) {
+          window.snap.pay(paymentData.token, {
+            onSuccess: async (result: any) => {
+              console.log('Payment success:', result);
+              navigate('/member-dashboard');
+            },
+            onPending: (result: any) => {
+              console.log('Payment pending:', result);
+              toast({
+                title: "Payment Pending",
+                description: "Please complete your payment",
+              });
+            },
+            onError: (result: any) => {
+              console.error('Payment error:', result);
+              toast({
+                title: "Payment Failed",
+                description: "Please try again",
+                variant: "destructive"
+              });
+            },
+            onClose: () => {
+              console.log('Customer closed the popup without finishing the payment');
+              toast({
+                title: "Payment Cancelled",
+                description: "You can try again later",
+              });
+            }
+          });
+        } else {
+          throw new Error('Payment system not initialized');
+        }
+
         toast({
-          title: "Registration successful",
+          title: "Registration initiated",
           description: "Please complete the payment process.",
         });
       }
     } catch (error) {
       console.error('Registration error:', error);
-      const message = getErrorMessage(error);
       toast({
         title: "Error",
-        description: message,
-        variant: "destructive"
+        description: error instanceof Error ? error.message : "An error occurred during registration",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -166,18 +153,18 @@ export function SignUpForm() {
   };
 
   return (
-    <Card className="w-[350px] mx-auto">
+    <Card className="w-[350px]">
       <CardHeader>
         <CardTitle>Create Account</CardTitle>
-        <CardDescription>Join Boosthenics community</CardDescription>
+        <CardDescription>Enter your information to get started</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent>
           <div className="grid w-full items-center gap-4">
             <div className="flex flex-col space-y-1.5">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name">Name</Label>
               <Input 
-                id="name" 
+                id="name"
                 placeholder="Enter your name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -187,7 +174,7 @@ export function SignUpForm() {
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="email">Email</Label>
               <Input 
-                id="email" 
+                id="email"
                 type="email"
                 placeholder="Enter your email"
                 value={email}
@@ -195,28 +182,26 @@ export function SignUpForm() {
                 required
               />
             </div>
-            {!isAdminEmail(email) && (
-              <div className="flex flex-col space-y-1.5">
-                <Label htmlFor="password">Password</Label>
-                <Input 
-                  id="password" 
-                  type="password"
-                  placeholder="Create a password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-            )}
+            <div className="flex flex-col space-y-1.5">
+              <Label htmlFor="password">Password</Label>
+              <Input 
+                id="password"
+                type="password"
+                placeholder="Choose a password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-2">
           <Button 
             type="submit" 
-            className="w-full" 
-            disabled={isLoading || rateLimitError}
+            className="w-full"
+            disabled={isLoading}
           >
-            {isLoading ? "Processing..." : isAdminEmail(email) ? "Sign Up as Admin" : "Sign Up (Rp 25.000/month)"}
+            {isLoading ? "Creating Account..." : "Create Account"}
           </Button>
           <Button 
             variant="outline" 
